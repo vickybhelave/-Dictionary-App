@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dictionary App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      color: white;
+    }
+    .container {
+      background: rgba(0,0,0,0.6);
+      padding: 25px;
+      border-radius: 15px;
+      width: 350px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      margin-bottom: 10px;
+      font-size: 1em;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #ff9800;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 1em;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #e68900;
+    }
+    .result {
+      margin-top: 20px;
+      background: rgba(255,255,255,0.1);
+      padding: 15px;
+      border-radius: 10px;
+    }
+    audio {
+      margin-top: 10px;
+      width: 100%;
+    }
+    .examples {
+      margin-top: 15px;
+      padding: 10px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px;
+    }
+    .examples ul {
+      padding-left: 20px;
+    }
+    .examples li {
+      margin-bottom: 10px;
+    }
+    .examples p {
+      margin: 5px 0;
+    }
+    .explanation {
+      color: #ffcc80;
+      font-style: italic;
+      font-size: 0.9em;
+    }
+    .pronunciation {
+      margin: 15px 0;
+      padding: 10px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+    }
+    .hindi-pronunciation {
+      color: #ffcc80;
+      font-style: italic;
+      margin: 5px 0 10px 0;
+    }
+    .speak-button {
+      background: none;
+      border: none;
+      color: #4CAF50;
+      font-size: 1em;
+      cursor: pointer;
+      margin-left: 10px;
+      vertical-align: middle;
+      padding: 2px 5px;
+    }
+    .speak-button:hover {
+      color: #45a049;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>📖 Dictionary App</h2>
+    <div class="search-box">
+      <input type="text" id="wordInput" placeholder="Enter a word..." onkeypress="handleKeyPress(event)">
+      <button onclick="searchWord()">Search</button>
+    </div>
+    <div class="result" id="result"></div>
+  </div>
+
+  <script>
+    // Function to speak Hindi text
+    function speakHindi(text) {
+      try {
+        // Using Google's TTS API
+        const audio = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=hi&client=tw-ob`);
+        audio.play().catch(e => console.log("Couldn't play Hindi audio"));
+      } catch (e) {
+        console.error("Error playing Hindi audio:", e);
+      }
+    }
+
+    // Handle Enter key press
+    function handleKeyPress(event) {
+      if (event.key === 'Enter') {
+        searchWord();
+      }
+    }
+
+    async function searchWord() {
+      const word = document.getElementById("wordInput").value.trim();
+      const resultDiv = document.getElementById("result");
+
+      if (!word) {
+        resultDiv.innerHTML = "<p>Please enter a word!</p>";
+        return;
+      }
+
+      resultDiv.innerHTML = "<p>Searching...</p>";
+
+      try {
+        const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
+        if (!response.ok) throw new Error("Word not found");
+        const data = await response.json();
+
+        const meaning = data[0].meanings[0].definitions[0].definition;
+        const partOfSpeech = data[0].meanings[0].partOfSpeech;
+        const phonetics = data[0].phonetics.find(p => p.audio);
+
+        // Get example sentences if available
+        let examplesHtml = '';
+        const definitions = data[0].meanings[0].definitions;
+        
+        // Take first 3 example sentences if available
+        const exampleSentences = definitions
+          .filter(def => def.example)
+          .slice(0, 3);
+        
+        if (exampleSentences.length > 0) {
+          examplesHtml = '<div class="examples"><h4>Examples:</h4><ul>';
+          exampleSentences.forEach((def, index) => {
+            examplesHtml += `
+              <li>
+                <p>${def.example}</p>
+                ${def.synonyms && def.synonyms.length > 0 ? 
+                  `<p class="explanation">Similar words: ${def.synonyms.slice(0, 5).join(', ')}</p>` : ''}
+              </li>`;
+          });
+          examplesHtml += '</ul></div>';
+        }
+
+        // Get Hindi translation using Google Translate API (note: this is a simplified example)
+        // In a production app, you would need to use a proper translation API with an API key
+        let hindiTranslation = "";
+        try {
+          const translateResponse = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|hi`);
+          if (translateResponse.ok) {
+            const translationData = await translateResponse.json();
+            hindiTranslation = translationData.responseData?.translatedText || "Translation not available";
+          }
+        } catch (e) {
+          console.error("Translation error:", e);
+          hindiTranslation = "Translation service unavailable";
+        }
+
+        // Get Hindi pronunciation if available
+        let hindiPronunciation = "";
+        try {
+          const hindiResponse = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|hi`);
+          if (hindiResponse.ok) {
+            const hindiData = await hindiResponse.json();
+            const translatedWord = hindiData.responseData?.translatedText;
+            if (translatedWord) {
+              // Get pronunciation guide by translating to Hindi and back to English letters
+              const pronResponse = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(translatedWord)}&langpair=hi|en`);
+              if (pronResponse.ok) {
+                const pronData = await pronResponse.json();
+                hindiPronunciation = pronData.responseData?.translatedText || "";
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Pronunciation error:", e);
+        }
+
+        resultDiv.innerHTML = `
+          <h3>${word}</h3>
+          <p><strong>Part of Speech:</strong> ${partOfSpeech}</p>
+          <p><strong>Meaning:</strong> ${meaning}</p>
+          <p><strong>Hindi Translation:</strong> ${hindiTranslation} 
+            <button onclick="speakHindi('${hindiTranslation.replace(/'/g, "\\'")}')" class="speak-button" title="Listen in Hindi">
+              🔊
+            </button>
+          </p>
+          ${phonetics ? `
+            <div class="pronunciation">
+              <p><strong>Pronunciation:</strong> ${phonetics.text || ''}</p>
+              ${hindiPronunciation ? `<p class="hindi-pronunciation">Hindi: ${hindiPronunciation}</p>` : ''}
+              <audio controls src="${phonetics.audio}"></audio>
+            </div>
+          ` : ""}
+          ${examplesHtml}
+        `;
+      } catch (error) {
+        resultDiv.innerHTML = "<p>Word not found. Try another!</p>";
+      }
+    }
+  </script>
+</body>
+</html>
